@@ -47,14 +47,23 @@ export default async function handler(req, res) {
       // Save to KV store
       await kv.set('bookings', bookings);
 
-      // Send confirmation emails to both barber and customer
-      await sendBookingEmail(booking);
-      await sendCustomerConfirmationEmail(booking);
+      // Send confirmation emails (don't fail booking if email fails)
+      try {
+        await sendBookingEmail(booking);
+        await sendCustomerConfirmationEmail(booking);
+      } catch (emailError) {
+        console.error('Error sending emails (booking still created):', emailError);
+        console.error('Email error details:', emailError.message);
+        console.error('EMAIL_USER configured:', !!process.env.EMAIL_USER);
+        console.error('EMAIL_PASSWORD configured:', !!process.env.EMAIL_PASSWORD);
+      }
 
       return res.status(201).json({ success: true, booking });
     } catch (error) {
       console.error('Error creating booking:', error);
-      return res.status(500).json({ error: 'Failed to create booking' });
+      console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
+      return res.status(500).json({ error: 'Failed to create booking', details: error.message });
     }
   }
 
@@ -76,14 +85,20 @@ export default async function handler(req, res) {
       const updatedBookings = bookings.filter(b => b.id !== bookingId);
       await kv.set('bookings', updatedBookings);
 
-      // Send cancellation emails to both customer and barber
-      await sendCancellationEmail(booking);
-      await sendBarberCancellationNotification(booking);
+      // Send cancellation emails (don't fail cancellation if email fails)
+      try {
+        await sendCancellationEmail(booking);
+        await sendBarberCancellationNotification(booking);
+      } catch (emailError) {
+        console.error('Error sending cancellation emails (booking still cancelled):', emailError);
+        console.error('Email error details:', emailError.message);
+      }
 
       return res.status(200).json({ success: true });
     } catch (error) {
       console.error('Error cancelling booking:', error);
-      return res.status(500).json({ error: 'Failed to cancel booking' });
+      console.error('Error details:', error.message);
+      return res.status(500).json({ error: 'Failed to cancel booking', details: error.message });
     }
   }
 
