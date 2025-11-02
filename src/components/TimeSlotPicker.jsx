@@ -6,16 +6,47 @@ function TimeSlotPicker({ service, onSelect, onBack }) {
   const [weekDates, setWeekDates] = useState([]);
 
   useEffect(() => {
-    // Generate next 7 days
-    const dates = [];
-    const today = new Date();
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      dates.push(date);
-    }
+    // Generate next 7 days starting from today
+    const generateWeekDates = () => {
+      const dates = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset to start of day
+
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        dates.push(date);
+      }
+      return dates;
+    };
+
+    const dates = generateWeekDates();
     setWeekDates(dates);
     setSelectedDate(dates[0]);
+
+    // Update the week every day at midnight to remove past days
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const msUntilMidnight = tomorrow - now;
+
+    const midnightTimer = setTimeout(() => {
+      const newDates = generateWeekDates();
+      setWeekDates(newDates);
+      setSelectedDate(newDates[0]);
+
+      // Set up daily interval after first midnight
+      const dailyInterval = setInterval(() => {
+        const refreshedDates = generateWeekDates();
+        setWeekDates(refreshedDates);
+        setSelectedDate(refreshedDates[0]);
+      }, 24 * 60 * 60 * 1000); // 24 hours
+
+      return () => clearInterval(dailyInterval);
+    }, msUntilMidnight);
+
+    return () => clearTimeout(midnightTimer);
   }, []);
 
   useEffect(() => {
