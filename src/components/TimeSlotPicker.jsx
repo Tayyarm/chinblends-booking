@@ -71,7 +71,14 @@ function TimeSlotPicker({ service, onSelect, onBack }) {
 
   const isTimeInPast = (date, timeSlot) => {
     const now = new Date();
-    const slotDateTime = new Date(date);
+
+    // Create a new date object using the date's year, month, and day to avoid timezone issues
+    const slotDateTime = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    );
+
     const [hours, minutes] = convertTo24Hour(timeSlot).split(':');
     slotDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
