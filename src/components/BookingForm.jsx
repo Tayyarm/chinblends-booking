@@ -5,7 +5,8 @@ function BookingForm({ service, timeSlot, onBack }) {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
-    phone: ''
+    phone: '',
+    email: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -23,6 +24,7 @@ function BookingForm({ service, timeSlot, onBack }) {
       time: timeSlot.time,
       customerName: formData.name,
       customerPhone: formData.phone,
+      customerEmail: formData.email,
       createdAt: new Date().toISOString()
     };
 
@@ -118,6 +120,21 @@ function BookingForm({ service, timeSlot, onBack }) {
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors"
             placeholder="(555) 123-4567"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            Email Address *
+          </label>
+          <input
+            type="email"
+            id="email"
+            required
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors"
+            placeholder="john@example.com"
           />
         </div>
 
