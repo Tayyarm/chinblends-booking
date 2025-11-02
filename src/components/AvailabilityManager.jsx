@@ -91,16 +91,25 @@ function AvailabilityManager() {
     return () => clearTimeout(midnightTimer);
   }, []);
 
-  const loadAvailability = () => {
-    console.log('Loading availability from localStorage...');
-    const saved = localStorage.getItem('availability');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      console.log('Loaded availability:', parsed);
-      setAvailability(parsed);
-    } else {
-      console.log('No availability found, starting fresh');
-      setAvailability({});
+  const loadAvailability = async () => {
+    console.log('Loading availability from database...');
+    try {
+      const response = await fetch('/api/availability');
+      const data = await response.json();
+      console.log('Loaded availability:', data.availability);
+      setAvailability(data.availability || {});
+    } catch (error) {
+      console.error('Error loading availability:', error);
+      // Fallback to localStorage for local development
+      const saved = localStorage.getItem('availability');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        console.log('Loaded availability from localStorage (fallback):', parsed);
+        setAvailability(parsed);
+      } else {
+        console.log('No availability found, starting fresh');
+        setAvailability({});
+      }
     }
   };
 
@@ -137,19 +146,34 @@ function AvailabilityManager() {
     }));
   };
 
-  const saveAvailability = () => {
+  const saveAvailability = async () => {
     setSaving(true);
     console.log('Saving availability:', availability);
 
-    // Save to localStorage
-    localStorage.setItem('availability', JSON.stringify(availability));
+    try {
+      const response = await fetch('/api/availability', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ availability }),
+      });
 
-    // Show confirmation
-    setTimeout(() => {
+      if (response.ok) {
+        alert('Availability saved! Customers can now see these times on all devices.');
+        console.log('Availability saved to database');
+      } else {
+        throw new Error('Failed to save');
+      }
+    } catch (error) {
+      console.error('Error saving availability:', error);
+      // Fallback to localStorage for local development
+      localStorage.setItem('availability', JSON.stringify(availability));
+      alert('Availability saved locally!');
+      console.log('Availability saved to localStorage (fallback)');
+    } finally {
       setSaving(false);
-      alert('Availability saved! Customers can now see these times.');
-      console.log('Availability saved to localStorage');
-    }, 500);
+    }
   };
 
   const formatDate = (date) => {

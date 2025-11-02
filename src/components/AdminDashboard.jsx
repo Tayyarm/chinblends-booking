@@ -69,7 +69,7 @@ function AdminDashboard({ onLogout }) {
     }
 
     try {
-      const response = await fetch(`/api/bookings/${bookingId}`, {
+      const response = await fetch(`/api/bookings?id=${bookingId}`, {
         method: 'DELETE',
       });
 

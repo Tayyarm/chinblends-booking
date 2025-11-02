@@ -1,4 +1,17 @@
-import { kv } from '@vercel/kv';
+import { createClient } from 'redis';
+
+// Redis client setup
+let redisClient;
+async function getRedisClient() {
+  if (!redisClient) {
+    redisClient = createClient({
+      url: process.env.REDIS_URL || process.env.KV_URL
+    });
+    redisClient.on('error', (err) => console.error('Redis Client Error', err));
+    await redisClient.connect();
+  }
+  return redisClient;
+}
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -13,7 +26,9 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       // Get barber's weekly availability
-      const availability = await kv.get('weekly_availability') || {};
+      const client = await getRedisClient();
+      const availabilityData = await client.get('availability');
+      const availability = availabilityData ? JSON.parse(availabilityData) : {};
       return res.status(200).json({ availability });
     } catch (error) {
       console.error('Error fetching availability:', error);
@@ -26,7 +41,8 @@ export default async function handler(req, res) {
       const { availability } = req.body;
 
       // Save weekly availability
-      await kv.set('weekly_availability', availability);
+      const client = await getRedisClient();
+      await client.set('availability', JSON.stringify(availability));
 
       return res.status(200).json({ success: true, availability });
     } catch (error) {

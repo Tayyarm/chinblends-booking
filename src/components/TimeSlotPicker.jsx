@@ -85,70 +85,102 @@ function TimeSlotPicker({ service, onSelect, onBack }) {
     return slotDateTime < now;
   };
 
-  const loadAvailableSlots = (date) => {
+  const loadAvailableSlots = async (date) => {
     console.log('=== LOADING SLOTS FOR CUSTOMER ===');
     console.log('Selected date:', date.toDateString());
 
-    // Get barber's availability from localStorage
-    const availabilityJSON = localStorage.getItem('availability');
-    console.log('Raw availability from localStorage:', availabilityJSON);
+    try {
+      // Get barber's availability from database
+      const availResponse = await fetch('/api/availability');
+      const availData = await availResponse.json();
+      const availability = availData.availability || {};
+      console.log('Loaded availability from database:', availability);
 
-    if (!availabilityJSON) {
-      console.log('❌ No availability set by barber');
-      setAvailableSlots([]);
-      return;
-    }
+      // Get available times for this specific date
+      const dateStr = date.toISOString().split('T')[0];
+      console.log('Looking for availability on:', dateStr);
 
-    const availability = JSON.parse(availabilityJSON);
-    console.log('Parsed availability object:', availability);
+      const dateSlots = availability[dateStr] || [];
+      console.log(`Slots for ${dateStr}:`, dateSlots);
 
-    // Get available times for this specific date
-    const dateStr = date.toISOString().split('T')[0];
-    console.log('Looking for availability on:', dateStr);
-
-    const dateSlots = availability[dateStr] || [];
-    console.log(`Slots for ${dateStr}:`, dateSlots);
-
-    if (dateSlots.length === 0) {
-      console.log(`❌ Barber has no availability set for ${dateStr}`);
-      setAvailableSlots([]);
-      return;
-    }
-
-    // Get already booked slots
-    const bookingsJSON = localStorage.getItem('bookings');
-    const bookings = bookingsJSON ? JSON.parse(bookingsJSON) : [];
-    console.log('All bookings:', bookings);
-
-    const bookedTimes = bookings
-      .filter(b => {
-        console.log('Checking booking:', b.date, '===', dateStr, '?', b.date === dateStr);
-        return b.date === dateStr;
-      })
-      .map(b => b.time);
-
-    console.log('Booked times for this date:', bookedTimes);
-
-    // Filter out booked times AND past times for today
-    const today = new Date();
-    const isSelectedDateToday = date.toDateString() === today.toDateString();
-
-    const finalSlots = dateSlots.filter(slot => {
-      // Filter out booked slots
-      if (bookedTimes.includes(slot)) return false;
-
-      // Filter out past times if it's today
-      if (isSelectedDateToday && isTimeInPast(date, slot)) {
-        console.log(`⏰ Filtering out past time: ${slot}`);
-        return false;
+      if (dateSlots.length === 0) {
+        console.log(`❌ Barber has no availability set for ${dateStr}`);
+        setAvailableSlots([]);
+        return;
       }
 
-      return true;
-    });
+      // Get already booked slots from database
+      const bookingsResponse = await fetch('/api/bookings');
+      const bookingsData = await bookingsResponse.json();
+      const bookings = bookingsData.bookings || [];
+      console.log('All bookings:', bookings);
 
-    console.log('✅ Final available slots:', finalSlots);
+      const bookedTimes = bookings
+        .filter(b => {
+          console.log('Checking booking:', b.date, '===', dateStr, '?', b.date === dateStr);
+          return b.date === dateStr;
+        })
+        .map(b => b.time);
 
-    setAvailableSlots(finalSlots);
+      console.log('Booked times for this date:', bookedTimes);
+
+      // Filter out booked times AND past times for today
+      const today = new Date();
+      const isSelectedDateToday = date.toDateString() === today.toDateString();
+
+      const finalSlots = dateSlots.filter(slot => {
+        // Filter out booked slots
+        if (bookedTimes.includes(slot)) return false;
+
+        // Filter out past times if it's today
+        if (isSelectedDateToday && isTimeInPast(date, slot)) {
+          console.log(`⏰ Filtering out past time: ${slot}`);
+          return false;
+        }
+
+        return true;
+      });
+
+      console.log('✅ Final available slots:', finalSlots);
+
+      setAvailableSlots(finalSlots);
+    } catch (error) {
+      console.error('Error loading slots:', error);
+      // Fallback to localStorage for local development
+      const availabilityJSON = localStorage.getItem('availability');
+      const bookingsJSON = localStorage.getItem('bookings');
+
+      if (!availabilityJSON) {
+        console.log('❌ No availability set by barber');
+        setAvailableSlots([]);
+        return;
+      }
+
+      const availability = JSON.parse(availabilityJSON);
+      const dateStr = date.toISOString().split('T')[0];
+      const dateSlots = availability[dateStr] || [];
+
+      if (dateSlots.length === 0) {
+        setAvailableSlots([]);
+        return;
+      }
+
+      const bookings = bookingsJSON ? JSON.parse(bookingsJSON) : [];
+      const bookedTimes = bookings
+        .filter(b => b.date === dateStr)
+        .map(b => b.time);
+
+      const today = new Date();
+      const isSelectedDateToday = date.toDateString() === today.toDateString();
+
+      const finalSlots = dateSlots.filter(slot => {
+        if (bookedTimes.includes(slot)) return false;
+        if (isSelectedDateToday && isTimeInPast(date, slot)) return false;
+        return true;
+      });
+
+      setAvailableSlots(finalSlots);
+    }
   };
 
   const formatDate = (date) => {
