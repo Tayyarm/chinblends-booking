@@ -7,148 +7,82 @@ const timeSlots = [
   '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM', '08:00 PM'
 ];
 
+const daysOfWeek = [
+  { id: 0, name: 'Sunday', short: 'Sun' },
+  { id: 1, name: 'Monday', short: 'Mon' },
+  { id: 2, name: 'Tuesday', short: 'Tue' },
+  { id: 3, name: 'Wednesday', short: 'Wed' },
+  { id: 4, name: 'Thursday', short: 'Thu' },
+  { id: 5, name: 'Friday', short: 'Fri' },
+  { id: 6, name: 'Saturday', short: 'Sat' }
+];
+
 function AvailabilityManager() {
-  const [availability, setAvailability] = useState({});
-  const [weekDates, setWeekDates] = useState([]);
+  const [weeklySchedule, setWeeklySchedule] = useState({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // Generate next 7 days starting from today
-    const generateWeekDates = () => {
-      const dates = [];
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
-        dates.push(date);
-      }
-      return dates;
-    };
-
-    const dates = generateWeekDates();
-    setWeekDates(dates);
-    loadAvailability();
-
-    // Update the week every day at midnight
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    const msUntilMidnight = tomorrow - now;
-
-    const midnightTimer = setTimeout(() => {
-      const newDates = generateWeekDates();
-      setWeekDates(newDates);
-
-      // Clean up past dates from availability
-      const saved = localStorage.getItem('availability');
-      if (saved) {
-        const availability = JSON.parse(saved);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayStr = today.toISOString().split('T')[0];
-
-        // Remove dates before today
-        const cleaned = {};
-        Object.keys(availability).forEach(dateStr => {
-          if (dateStr >= todayStr) {
-            cleaned[dateStr] = availability[dateStr];
-          }
-        });
-        localStorage.setItem('availability', JSON.stringify(cleaned));
-        setAvailability(cleaned);
-      }
-
-      // Set up daily interval
-      const dailyInterval = setInterval(() => {
-        const refreshedDates = generateWeekDates();
-        setWeekDates(refreshedDates);
-
-        // Clean up availability again
-        const saved = localStorage.getItem('availability');
-        if (saved) {
-          const availability = JSON.parse(saved);
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const todayStr = today.toISOString().split('T')[0];
-
-          const cleaned = {};
-          Object.keys(availability).forEach(dateStr => {
-            if (dateStr >= todayStr) {
-              cleaned[dateStr] = availability[dateStr];
-            }
-          });
-          localStorage.setItem('availability', JSON.stringify(cleaned));
-          setAvailability(cleaned);
-        }
-      }, 24 * 60 * 60 * 1000);
-
-      return () => clearInterval(dailyInterval);
-    }, msUntilMidnight);
-
-    return () => clearTimeout(midnightTimer);
+    loadWeeklySchedule();
   }, []);
 
-  const loadAvailability = async () => {
-    console.log('Loading availability from database...');
+  const loadWeeklySchedule = async () => {
+    console.log('Loading weekly schedule from database...');
     try {
       const response = await fetch('/api/availability');
       const data = await response.json();
-      console.log('Loaded availability:', data.availability);
-      setAvailability(data.availability || {});
+      console.log('Loaded weekly schedule:', data.availability);
+      setWeeklySchedule(data.availability || {});
     } catch (error) {
-      console.error('Error loading availability:', error);
+      console.error('Error loading weekly schedule:', error);
       // Fallback to localStorage for local development
-      const saved = localStorage.getItem('availability');
+      const saved = localStorage.getItem('weeklySchedule');
       if (saved) {
         const parsed = JSON.parse(saved);
-        console.log('Loaded availability from localStorage (fallback):', parsed);
-        setAvailability(parsed);
+        console.log('Loaded weekly schedule from localStorage (fallback):', parsed);
+        setWeeklySchedule(parsed);
       } else {
-        console.log('No availability found, starting fresh');
-        setAvailability({});
+        console.log('No weekly schedule found, starting fresh');
+        setWeeklySchedule({});
       }
     }
   };
 
-  const toggleTimeSlot = (dateStr, time) => {
-    setAvailability(prev => {
-      const dateSlots = prev[dateStr] || [];
-      const isSelected = dateSlots.includes(time);
+  const toggleTimeSlot = (dayOfWeek, time) => {
+    setWeeklySchedule(prev => {
+      const daySlots = prev[dayOfWeek] || [];
+      const isSelected = daySlots.includes(time);
 
-      const newDateSlots = isSelected
-        ? dateSlots.filter(t => t !== time)
-        : [...dateSlots, time].sort((a, b) => timeSlots.indexOf(a) - timeSlots.indexOf(b));
+      const newDaySlots = isSelected
+        ? daySlots.filter(t => t !== time)
+        : [...daySlots, time].sort((a, b) => timeSlots.indexOf(a) - timeSlots.indexOf(b));
 
-      const newAvailability = {
+      const newSchedule = {
         ...prev,
-        [dateStr]: newDateSlots
+        [dayOfWeek]: newDaySlots
       };
 
-      console.log(`Toggled ${time} for ${dateStr}:`, newDateSlots);
-      return newAvailability;
+      console.log(`Toggled ${time} for ${daysOfWeek[dayOfWeek].name}:`, newDaySlots);
+      return newSchedule;
     });
   };
 
-  const selectAllForDate = (dateStr) => {
-    setAvailability(prev => ({
+  const selectAllForDay = (dayOfWeek) => {
+    setWeeklySchedule(prev => ({
       ...prev,
-      [dateStr]: [...timeSlots]
+      [dayOfWeek]: [...timeSlots]
     }));
   };
 
-  const clearAllForDate = (dateStr) => {
-    setAvailability(prev => ({
+  const clearAllForDay = (dayOfWeek) => {
+    setWeeklySchedule(prev => ({
       ...prev,
-      [dateStr]: []
+      [dayOfWeek]: []
     }));
   };
 
-  const saveAvailability = async () => {
+  const saveWeeklySchedule = async () => {
     setSaving(true);
-    console.log('Saving availability:', availability);
+    console.log('Saving weekly schedule:', weeklySchedule);
 
     try {
       const response = await fetch('/api/availability', {
@@ -156,46 +90,24 @@ function AvailabilityManager() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ availability }),
+        body: JSON.stringify({ availability: weeklySchedule }),
       });
 
       if (response.ok) {
-        alert('Availability saved! Customers can now see these times on all devices.');
-        console.log('Availability saved to database');
+        alert('Weekly schedule saved! This schedule will repeat every week. Customers can now see these times on all devices.');
+        console.log('Weekly schedule saved to database');
       } else {
         throw new Error('Failed to save');
       }
     } catch (error) {
-      console.error('Error saving availability:', error);
+      console.error('Error saving weekly schedule:', error);
       // Fallback to localStorage for local development
-      localStorage.setItem('availability', JSON.stringify(availability));
-      alert('Availability saved locally!');
-      console.log('Availability saved to localStorage (fallback)');
+      localStorage.setItem('weeklySchedule', JSON.stringify(weeklySchedule));
+      alert('Weekly schedule saved locally!');
+      console.log('Weekly schedule saved to localStorage (fallback)');
     } finally {
       setSaving(false);
     }
-  };
-
-  const formatDate = (date) => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return {
-      dayName: days[date.getDay()],
-      date: date.getDate(),
-      month: months[date.getMonth()],
-      fullDate: date
-    };
-  };
-
-  const isToday = (date) => {
-    const today = new Date();
-    return date.toDateString() === today.toDateString();
-  };
-
-  const isTomorrow = (date) => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return date.toDateString() === tomorrow.toDateString();
   };
 
   return (
@@ -209,14 +121,14 @@ function AvailabilityManager() {
             </svg>
           </div>
           <div className="ml-3">
-            <h3 className="text-sm font-medium text-blue-800">How it works</h3>
+            <h3 className="text-sm font-medium text-blue-800">How it works - Recurring Weekly Schedule</h3>
             <div className="mt-2 text-sm text-blue-700">
               <ul className="list-disc list-inside space-y-1">
-                <li>Click time slots to mark yourself as available for specific dates</li>
-                <li>Set your availability for the next 7 days</li>
-                <li>Past days automatically disappear at midnight</li>
-                <li>Customers will ONLY see the times you select</li>
+                <li>Set your availability for each day of the week (Sunday - Saturday)</li>
+                <li>This schedule repeats every week automatically</li>
+                <li>Customers will see these times for all future weeks</li>
                 <li>Already booked times won't show to customers</li>
+                <li>Change anytime to update your weekly schedule</li>
               </ul>
             </div>
           </div>
@@ -226,62 +138,55 @@ function AvailabilityManager() {
       {/* Save Button - Top */}
       <div className="flex justify-end">
         <button
-          onClick={saveAvailability}
+          onClick={saveWeeklySchedule}
           disabled={saving}
           className="px-8 py-3 bg-black text-white rounded-lg font-bold text-lg hover:bg-gray-800 transition-colors disabled:bg-gray-400 shadow-lg"
         >
-          {saving ? 'Saving...' : '💾 Save Availability'}
+          {saving ? 'Saving...' : '💾 Save Weekly Schedule'}
         </button>
       </div>
 
-      {/* Dates */}
+      {/* Days of Week */}
       <div className="space-y-6">
-        {weekDates.map(date => {
-          const dateStr = date.toISOString().split('T')[0];
-          const dateSlots = availability[dateStr] || [];
-          const selectedCount = dateSlots.length;
-          const formatted = formatDate(date);
-          const today = isToday(date);
-          const tomorrow = isTomorrow(date);
+        {daysOfWeek.map(day => {
+          const daySlots = weeklySchedule[day.id] || [];
+          const selectedCount = daySlots.length;
+          const today = new Date().getDay();
+          const isToday = day.id === today;
 
           return (
-            <div key={dateStr} className="bg-white border-2 border-gray-200 rounded-lg overflow-hidden">
-              {/* Date Header */}
+            <div key={day.id} className="bg-white border-2 border-gray-200 rounded-lg overflow-hidden">
+              {/* Day Header */}
               <div className="bg-gray-50 px-6 py-4 border-b-2 border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-xl font-bold text-gray-900">
-                        {formatted.dayName}, {formatted.month} {formatted.date}
+                        {day.name}
                       </h3>
-                      {today && (
+                      {isToday && (
                         <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">
                           TODAY
-                        </span>
-                      )}
-                      {tomorrow && (
-                        <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">
-                          TOMORROW
                         </span>
                       )}
                     </div>
                     <p className="text-sm text-gray-600">
                       {selectedCount === 0 ? (
-                        <span className="text-red-600 font-semibold">⚠️ No times selected - You're unavailable</span>
+                        <span className="text-red-600 font-semibold">⚠️ No times selected - Closed on {day.name}s</span>
                       ) : (
-                        <span className="text-green-600 font-semibold">✓ {selectedCount} time slots available</span>
+                        <span className="text-green-600 font-semibold">✓ {selectedCount} time slots available every {day.name}</span>
                       )}
                     </p>
                   </div>
                   <div className="flex space-x-3">
                     <button
-                      onClick={() => selectAllForDate(dateStr)}
+                      onClick={() => selectAllForDay(day.id)}
                       className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg border-2 border-green-200 transition-colors"
                     >
                       ✓ Select All
                     </button>
                     <button
-                      onClick={() => clearAllForDate(dateStr)}
+                      onClick={() => clearAllForDay(day.id)}
                       className="px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border-2 border-red-200 transition-colors"
                     >
                       ✗ Clear All
@@ -294,11 +199,11 @@ function AvailabilityManager() {
               <div className="p-6">
                 <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
                   {timeSlots.map(time => {
-                    const isSelected = dateSlots.includes(time);
+                    const isSelected = daySlots.includes(time);
                     return (
                       <button
                         key={time}
-                        onClick={() => toggleTimeSlot(dateStr, time)}
+                        onClick={() => toggleTimeSlot(day.id, time)}
                         className={`p-3 rounded-lg text-sm font-bold transition-all border-2 ${
                           isSelected
                             ? 'bg-black text-white border-black shadow-md scale-105'
@@ -319,18 +224,18 @@ function AvailabilityManager() {
       {/* Save Button - Bottom */}
       <div className="flex justify-center pt-4">
         <button
-          onClick={saveAvailability}
+          onClick={saveWeeklySchedule}
           disabled={saving}
           className="px-12 py-4 bg-black text-white rounded-lg font-bold text-xl hover:bg-gray-800 transition-colors disabled:bg-gray-400 shadow-xl"
         >
-          {saving ? 'Saving...' : '💾 Save Availability'}
+          {saving ? 'Saving...' : '💾 Save Weekly Schedule'}
         </button>
       </div>
 
       {/* Footer Note */}
       <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
         <p className="text-sm text-yellow-800">
-          <strong>Remember:</strong> Click "Save Availability" after making changes. Your customers will only see the times you've selected and saved.
+          <strong>Remember:</strong> This is your recurring weekly schedule. Set your hours for each day and they'll repeat every week. Customers will see these times on all future dates.
         </p>
       </div>
     </div>

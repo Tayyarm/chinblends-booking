@@ -90,21 +90,27 @@ function TimeSlotPicker({ service, onSelect, onBack }) {
     console.log('Selected date:', date.toDateString());
 
     try {
-      // Get barber's availability from database
+      // Get barber's weekly schedule from database
       const availResponse = await fetch('/api/availability');
       const availData = await availResponse.json();
-      const availability = availData.availability || {};
-      console.log('Loaded availability from database:', availability);
+      const weeklySchedule = availData.availability || {};
+      console.log('Loaded weekly schedule from database:', weeklySchedule);
 
-      // Get available times for this specific date
+      // Get day of week (0 = Sunday, 6 = Saturday)
+      const dayOfWeek = date.getDay();
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      console.log('Day of week:', dayOfWeek, dayNames[dayOfWeek]);
+
+      // Get available times for this day of the week from recurring schedule
+      const dateSlots = weeklySchedule[dayOfWeek] || [];
+      console.log(`Recurring slots for ${dayNames[dayOfWeek]}s:`, dateSlots);
+
+      // Get the actual date string for checking bookings
       const dateStr = date.toISOString().split('T')[0];
-      console.log('Looking for availability on:', dateStr);
-
-      const dateSlots = availability[dateStr] || [];
-      console.log(`Slots for ${dateStr}:`, dateSlots);
+      console.log('Date string for booking check:', dateStr);
 
       if (dateSlots.length === 0) {
-        console.log(`❌ Barber has no availability set for ${dateStr}`);
+        console.log(`❌ Barber is closed on ${dayNames[dayOfWeek]}s`);
         setAvailableSlots([]);
         return;
       }
@@ -147,18 +153,19 @@ function TimeSlotPicker({ service, onSelect, onBack }) {
     } catch (error) {
       console.error('Error loading slots:', error);
       // Fallback to localStorage for local development
-      const availabilityJSON = localStorage.getItem('availability');
+      const weeklyScheduleJSON = localStorage.getItem('weeklySchedule');
       const bookingsJSON = localStorage.getItem('bookings');
 
-      if (!availabilityJSON) {
-        console.log('❌ No availability set by barber');
+      if (!weeklyScheduleJSON) {
+        console.log('❌ No weekly schedule set by barber');
         setAvailableSlots([]);
         return;
       }
 
-      const availability = JSON.parse(availabilityJSON);
+      const weeklySchedule = JSON.parse(weeklyScheduleJSON);
+      const dayOfWeek = date.getDay();
+      const dateSlots = weeklySchedule[dayOfWeek] || [];
       const dateStr = date.toISOString().split('T')[0];
-      const dateSlots = availability[dateStr] || [];
 
       if (dateSlots.length === 0) {
         setAvailableSlots([]);
