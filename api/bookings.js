@@ -1,5 +1,18 @@
-import { kv } from '@vercel/kv';
+import { createClient } from 'redis';
 import nodemailer from 'nodemailer';
+
+// Redis client setup
+let redisClient;
+async function getRedisClient() {
+  if (!redisClient) {
+    redisClient = createClient({
+      url: process.env.REDIS_URL || process.env.KV_URL
+    });
+    redisClient.on('error', (err) => console.error('Redis Client Error', err));
+    await redisClient.connect();
+  }
+  return redisClient;
+}
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -23,7 +36,9 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       // Get all bookings
-      const bookings = await kv.get('bookings') || [];
+      const client = await getRedisClient();
+      const bookingsData = await client.get('bookings');
+      const bookings = bookingsData ? JSON.parse(bookingsData) : [];
       return res.status(200).json({ bookings });
     } catch (error) {
       console.error('Error fetching bookings:', error);
@@ -39,13 +54,15 @@ export default async function handler(req, res) {
       booking.id = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       // Get existing bookings
-      const bookings = await kv.get('bookings') || [];
+      const client = await getRedisClient();
+      const bookingsData = await client.get('bookings');
+      const bookings = bookingsData ? JSON.parse(bookingsData) : [];
 
       // Add new booking
       bookings.push(booking);
 
-      // Save to KV store
-      await kv.set('bookings', bookings);
+      // Save to Redis store
+      await client.set('bookings', JSON.stringify(bookings));
 
       // Send confirmation emails (don't fail booking if email fails)
       try {
@@ -72,7 +89,9 @@ export default async function handler(req, res) {
       const bookingId = req.query.id;
 
       // Get existing bookings
-      const bookings = await kv.get('bookings') || [];
+      const client = await getRedisClient();
+      const bookingsData = await client.get('bookings');
+      const bookings = bookingsData ? JSON.parse(bookingsData) : [];
 
       // Find the booking to cancel
       const booking = bookings.find(b => b.id === bookingId);
@@ -83,7 +102,7 @@ export default async function handler(req, res) {
 
       // Remove booking
       const updatedBookings = bookings.filter(b => b.id !== bookingId);
-      await kv.set('bookings', updatedBookings);
+      await client.set('bookings', JSON.stringify(updatedBookings));
 
       // Send cancellation emails (don't fail cancellation if email fails)
       try {
