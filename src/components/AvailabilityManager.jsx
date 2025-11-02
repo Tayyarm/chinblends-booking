@@ -7,14 +7,88 @@ const timeSlots = [
   '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM', '08:00 PM'
 ];
 
-const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
 function AvailabilityManager() {
   const [availability, setAvailability] = useState({});
+  const [weekDates, setWeekDates] = useState([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    // Generate next 7 days starting from today
+    const generateWeekDates = () => {
+      const dates = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        dates.push(date);
+      }
+      return dates;
+    };
+
+    const dates = generateWeekDates();
+    setWeekDates(dates);
     loadAvailability();
+
+    // Update the week every day at midnight
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const msUntilMidnight = tomorrow - now;
+
+    const midnightTimer = setTimeout(() => {
+      const newDates = generateWeekDates();
+      setWeekDates(newDates);
+
+      // Clean up past dates from availability
+      const saved = localStorage.getItem('availability');
+      if (saved) {
+        const availability = JSON.parse(saved);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
+
+        // Remove dates before today
+        const cleaned = {};
+        Object.keys(availability).forEach(dateStr => {
+          if (dateStr >= todayStr) {
+            cleaned[dateStr] = availability[dateStr];
+          }
+        });
+        localStorage.setItem('availability', JSON.stringify(cleaned));
+        setAvailability(cleaned);
+      }
+
+      // Set up daily interval
+      const dailyInterval = setInterval(() => {
+        const refreshedDates = generateWeekDates();
+        setWeekDates(refreshedDates);
+
+        // Clean up availability again
+        const saved = localStorage.getItem('availability');
+        if (saved) {
+          const availability = JSON.parse(saved);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const todayStr = today.toISOString().split('T')[0];
+
+          const cleaned = {};
+          Object.keys(availability).forEach(dateStr => {
+            if (dateStr >= todayStr) {
+              cleaned[dateStr] = availability[dateStr];
+            }
+          });
+          localStorage.setItem('availability', JSON.stringify(cleaned));
+          setAvailability(cleaned);
+        }
+      }, 24 * 60 * 60 * 1000);
+
+      return () => clearInterval(dailyInterval);
+    }, msUntilMidnight);
+
+    return () => clearTimeout(midnightTimer);
   }, []);
 
   const loadAvailability = () => {
@@ -30,36 +104,36 @@ function AvailabilityManager() {
     }
   };
 
-  const toggleTimeSlot = (day, time) => {
+  const toggleTimeSlot = (dateStr, time) => {
     setAvailability(prev => {
-      const daySlots = prev[day] || [];
-      const isSelected = daySlots.includes(time);
+      const dateSlots = prev[dateStr] || [];
+      const isSelected = dateSlots.includes(time);
 
-      const newDaySlots = isSelected
-        ? daySlots.filter(t => t !== time)
-        : [...daySlots, time].sort((a, b) => timeSlots.indexOf(a) - timeSlots.indexOf(b));
+      const newDateSlots = isSelected
+        ? dateSlots.filter(t => t !== time)
+        : [...dateSlots, time].sort((a, b) => timeSlots.indexOf(a) - timeSlots.indexOf(b));
 
       const newAvailability = {
         ...prev,
-        [day]: newDaySlots
+        [dateStr]: newDateSlots
       };
 
-      console.log(`Toggled ${time} for ${day}:`, newDaySlots);
+      console.log(`Toggled ${time} for ${dateStr}:`, newDateSlots);
       return newAvailability;
     });
   };
 
-  const selectAllForDay = (day) => {
+  const selectAllForDate = (dateStr) => {
     setAvailability(prev => ({
       ...prev,
-      [day]: [...timeSlots]
+      [dateStr]: [...timeSlots]
     }));
   };
 
-  const clearAllForDay = (day) => {
+  const clearAllForDate = (dateStr) => {
     setAvailability(prev => ({
       ...prev,
-      [day]: []
+      [dateStr]: []
     }));
   };
 
@@ -78,6 +152,28 @@ function AvailabilityManager() {
     }, 500);
   };
 
+  const formatDate = (date) => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return {
+      dayName: days[date.getDay()],
+      date: date.getDate(),
+      month: months[date.getMonth()],
+      fullDate: date
+    };
+  };
+
+  const isToday = (date) => {
+    const today = new Date();
+    return date.toDateString() === today.toDateString();
+  };
+
+  const isTomorrow = (date) => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return date.toDateString() === tomorrow.toDateString();
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -92,8 +188,9 @@ function AvailabilityManager() {
             <h3 className="text-sm font-medium text-blue-800">How it works</h3>
             <div className="mt-2 text-sm text-blue-700">
               <ul className="list-disc list-inside space-y-1">
-                <li>Click time slots to mark yourself as available</li>
-                <li>These times will repeat every week</li>
+                <li>Click time slots to mark yourself as available for specific dates</li>
+                <li>Set your availability for the next 7 days</li>
+                <li>Past days automatically disappear at midnight</li>
                 <li>Customers will ONLY see the times you select</li>
                 <li>Already booked times won't show to customers</li>
               </ul>
@@ -113,20 +210,38 @@ function AvailabilityManager() {
         </button>
       </div>
 
-      {/* Days */}
+      {/* Dates */}
       <div className="space-y-6">
-        {daysOfWeek.map(day => {
-          const daySlots = availability[day] || [];
-          const selectedCount = daySlots.length;
+        {weekDates.map(date => {
+          const dateStr = date.toISOString().split('T')[0];
+          const dateSlots = availability[dateStr] || [];
+          const selectedCount = dateSlots.length;
+          const formatted = formatDate(date);
+          const today = isToday(date);
+          const tomorrow = isTomorrow(date);
 
           return (
-            <div key={day} className="bg-white border-2 border-gray-200 rounded-lg overflow-hidden">
-              {/* Day Header */}
+            <div key={dateStr} className="bg-white border-2 border-gray-200 rounded-lg overflow-hidden">
+              {/* Date Header */}
               <div className="bg-gray-50 px-6 py-4 border-b-2 border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">{day}</h3>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-xl font-bold text-gray-900">
+                        {formatted.dayName}, {formatted.month} {formatted.date}
+                      </h3>
+                      {today && (
+                        <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">
+                          TODAY
+                        </span>
+                      )}
+                      {tomorrow && (
+                        <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full">
+                          TOMORROW
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-600">
                       {selectedCount === 0 ? (
                         <span className="text-red-600 font-semibold">⚠️ No times selected - You're unavailable</span>
                       ) : (
@@ -136,13 +251,13 @@ function AvailabilityManager() {
                   </div>
                   <div className="flex space-x-3">
                     <button
-                      onClick={() => selectAllForDay(day)}
+                      onClick={() => selectAllForDate(dateStr)}
                       className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg border-2 border-green-200 transition-colors"
                     >
                       ✓ Select All
                     </button>
                     <button
-                      onClick={() => clearAllForDay(day)}
+                      onClick={() => clearAllForDate(dateStr)}
                       className="px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border-2 border-red-200 transition-colors"
                     >
                       ✗ Clear All
@@ -155,11 +270,11 @@ function AvailabilityManager() {
               <div className="p-6">
                 <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
                   {timeSlots.map(time => {
-                    const isSelected = daySlots.includes(time);
+                    const isSelected = dateSlots.includes(time);
                     return (
                       <button
                         key={time}
-                        onClick={() => toggleTimeSlot(day, time)}
+                        onClick={() => toggleTimeSlot(dateStr, time)}
                         className={`p-3 rounded-lg text-sm font-bold transition-all border-2 ${
                           isSelected
                             ? 'bg-black text-white border-black shadow-md scale-105'

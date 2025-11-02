@@ -95,17 +95,15 @@ function TimeSlotPicker({ service, onSelect, onBack }) {
     const availability = JSON.parse(availabilityJSON);
     console.log('Parsed availability object:', availability);
 
-    // Get day of week
-    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const dayName = daysOfWeek[date.getDay()];
-    console.log('Day name:', dayName);
+    // Get available times for this specific date
+    const dateStr = date.toISOString().split('T')[0];
+    console.log('Looking for availability on:', dateStr);
 
-    // Get available times for this day
-    const daySlots = availability[dayName] || [];
-    console.log(`Slots for ${dayName}:`, daySlots);
+    const dateSlots = availability[dateStr] || [];
+    console.log(`Slots for ${dateStr}:`, dateSlots);
 
-    if (daySlots.length === 0) {
-      console.log(`❌ Barber has no availability set for ${dayName}`);
+    if (dateSlots.length === 0) {
+      console.log(`❌ Barber has no availability set for ${dateStr}`);
       setAvailableSlots([]);
       return;
     }
@@ -114,9 +112,6 @@ function TimeSlotPicker({ service, onSelect, onBack }) {
     const bookingsJSON = localStorage.getItem('bookings');
     const bookings = bookingsJSON ? JSON.parse(bookingsJSON) : [];
     console.log('All bookings:', bookings);
-
-    const dateStr = date.toISOString().split('T')[0];
-    console.log('Looking for bookings on:', dateStr);
 
     const bookedTimes = bookings
       .filter(b => {
@@ -131,7 +126,7 @@ function TimeSlotPicker({ service, onSelect, onBack }) {
     const today = new Date();
     const isSelectedDateToday = date.toDateString() === today.toDateString();
 
-    const finalSlots = daySlots.filter(slot => {
+    const finalSlots = dateSlots.filter(slot => {
       // Filter out booked slots
       if (bookedTimes.includes(slot)) return false;
 
