@@ -1,33 +1,24 @@
 const services = [
   {
     id: 1,
-    name: 'Fade & Beard',
-    duration: '1 hr',
-    description: 'Complete fade haircut with beard trim and shaping'
+    name: 'Haircut',
+    price: '$25',
+    duration: '45 mins',
+    description: 'Classic or modern cut tailored to your style'
   },
   {
     id: 2,
-    name: 'Fade',
-    duration: '45 mins',
-    description: 'Classic or modern fade tailored to your style'
+    name: 'Beard Trim',
+    price: '$10',
+    duration: '20 mins',
+    description: 'Precision trimming and shaping'
   },
   {
     id: 3,
-    name: 'Shape Up',
-    duration: '30 mins',
-    description: 'Lineup and edge up for a fresh look'
-  },
-  {
-    id: 4,
-    name: 'Shapeup With Beard',
-    duration: '30 mins',
-    description: 'Lineup with precision beard trimming'
-  },
-  {
-    id: 5,
-    name: 'Beard Only',
-    duration: '30 mins',
-    description: 'Precision beard trimming and shaping'
+    name: 'Design',
+    price: '$5',
+    duration: '15 mins',
+    description: 'Custom design and styling'
   }
 ];
 
@@ -37,22 +28,23 @@ function ServiceSelection({ onSelect }) {
       <h2 className="text-3xl font-bold text-gray-900 mb-2 text-center">Choose a Service</h2>
       <p className="text-gray-600 mb-8 text-center">Select the service you'd like to book</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {services.map((service) => (
           <button
             key={service.id}
             onClick={() => onSelect(service)}
-            className="bg-white border-2 border-gray-200 rounded-lg p-6 text-left hover:border-black transition-all duration-200 hover:shadow-lg group"
+            className="bg-white border-2 border-gray-200 rounded-lg p-6 text-center hover:border-black transition-all duration-200 hover:shadow-lg group"
           >
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="text-xl font-semibold text-gray-900 group-hover:text-black">
-                {service.name}
-              </h3>
-              <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                {service.duration}
-              </span>
+            <h3 className="text-2xl font-bold text-gray-900 group-hover:text-black mb-3">
+              {service.name}
+            </h3>
+            <div className="text-3xl font-bold text-gray-900 mb-4">
+              {service.price}
             </div>
-            <p className="text-gray-600 text-sm">{service.description}</p>
+            <p className="text-gray-600 text-sm mb-3">{service.description}</p>
+            <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full inline-block">
+              {service.duration}
+            </span>
           </button>
         ))}
       </div>
