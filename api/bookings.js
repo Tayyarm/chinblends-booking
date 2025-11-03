@@ -18,8 +18,8 @@ async function getRedisClient() {
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER, // Will be chinblends@gmail.com
-    pass: process.env.EMAIL_PASSWORD, // App-specific password
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD,
   },
 });
 
