@@ -15,7 +15,7 @@ function AdminPage() {
 
   const handleLogin = (password) => {
     // Simple password check - in production, this would be done server-side
-    if (password === 'chinblends2024') {
+    if (password === 'chinblends2168') {
       sessionStorage.setItem('adminToken', 'chinblends_admin');
       setIsAuthenticated(true);
       return true;
