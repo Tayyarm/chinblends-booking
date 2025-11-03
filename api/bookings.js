@@ -23,6 +23,15 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Verify transporter configuration on startup
+transporter.verify(function (error) {
+  if (error) {
+    console.error('Email transporter verification failed:', error);
+  } else {
+    console.log('Email server is ready to send messages');
+  }
+});
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -66,11 +75,20 @@ export default async function handler(req, res) {
 
       // Send confirmation emails (don't fail booking if email fails)
       try {
+        console.log('Attempting to send booking notification emails...');
+        console.log('EMAIL_USER:', process.env.EMAIL_USER);
+        console.log('Customer email:', booking.customerEmail);
+
         await sendBookingEmail(booking);
+        console.log('✓ Booking email sent to barber successfully');
+
         await sendCustomerConfirmationEmail(booking);
+        console.log('✓ Confirmation email sent to customer successfully');
       } catch (emailError) {
-        console.error('Error sending emails (booking still created):', emailError);
+        console.error('❌ Error sending emails (booking still created):', emailError);
         console.error('Email error details:', emailError.message);
+        console.error('Email error code:', emailError.code);
+        console.error('Email error stack:', emailError.stack);
         console.error('EMAIL_USER configured:', !!process.env.EMAIL_USER);
         console.error('EMAIL_PASSWORD configured:', !!process.env.EMAIL_PASSWORD);
       }
@@ -145,14 +163,18 @@ async function sendBookingEmail(booking) {
     `,
   };
 
-  try {
-    await transporter.sendMail(emailContent);
-  } catch (error) {
-    console.error('Error sending booking email:', error);
-  }
+  const result = await transporter.sendMail(emailContent);
+  console.log('Booking email sent:', result.messageId);
+  return result;
 }
 
 async function sendCustomerConfirmationEmail(booking) {
+  // Only send if we have a valid email
+  if (!booking.customerEmail || !booking.customerEmail.includes('@')) {
+    console.log('Skipping customer email - no valid email address provided');
+    return;
+  }
+
   // Email to customer confirming their booking
   const customerEmail = {
     from: process.env.EMAIL_USER,
@@ -178,14 +200,9 @@ async function sendCustomerConfirmationEmail(booking) {
     `,
   };
 
-  try {
-    // Only send if we have a valid email
-    if (booking.customerEmail && booking.customerEmail.includes('@')) {
-      await transporter.sendMail(customerEmail);
-    }
-  } catch (error) {
-    console.error('Error sending customer confirmation email:', error);
-  }
+  const result = await transporter.sendMail(customerEmail);
+  console.log('Customer confirmation email sent:', result.messageId);
+  return result;
 }
 
 async function sendCancellationEmail(booking) {
