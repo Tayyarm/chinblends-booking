@@ -64,11 +64,6 @@ function AdminLogin({ onLogin }) {
             </a>
           </div>
         </div>
-
-        <div className="mt-4 text-center text-sm text-gray-500">
-          <p>Default password: chinblends2024</p>
-          <p className="text-xs mt-1">(Change this in production)</p>
-        </div>
       </div>
     </div>
   );
