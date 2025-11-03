@@ -3,51 +3,74 @@ import { useState, useEffect } from 'react';
 function TimeSlotPicker({ service, onSelect, onBack }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [availableSlots, setAvailableSlots] = useState([]);
-  const [weekDates, setWeekDates] = useState([]);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [calendarDays, setCalendarDays] = useState([]);
 
   useEffect(() => {
-    // Generate next 7 days starting from today
-    const generateWeekDates = () => {
-      const dates = [];
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Reset to start of day
+    generateCalendar(currentMonth);
+  }, [currentMonth]);
 
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
-        dates.push(date);
+  const generateCalendar = (month) => {
+    const year = month.getFullYear();
+    const monthIndex = month.getMonth();
+
+    // First day of the month
+    const firstDay = new Date(year, monthIndex, 1);
+    const startingDayOfWeek = firstDay.getDay(); // 0 = Sunday
+
+    // Last day of the month
+    const lastDay = new Date(year, monthIndex + 1, 0);
+    const daysInMonth = lastDay.getDate();
+
+    const days = [];
+
+    // Add empty slots for days before the month starts
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+
+    // Add all days of the month
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, monthIndex, day);
+      date.setHours(0, 0, 0, 0);
+
+      // Only add if date is today or in the future
+      if (date >= today) {
+        days.push(date);
+      } else {
+        days.push(null); // Past dates shown as disabled
       }
-      return dates;
-    };
+    }
 
-    const dates = generateWeekDates();
-    setWeekDates(dates);
-    setSelectedDate(dates[0]);
+    setCalendarDays(days);
 
-    // Update the week every day at midnight to remove past days
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    const msUntilMidnight = tomorrow - now;
+    // Set initial selected date to today if in current month, otherwise first available day
+    if (!selectedDate) {
+      const firstAvailable = days.find(d => d !== null);
+      if (firstAvailable) {
+        setSelectedDate(firstAvailable);
+      }
+    }
+  };
 
-    const midnightTimer = setTimeout(() => {
-      const newDates = generateWeekDates();
-      setWeekDates(newDates);
-      setSelectedDate(newDates[0]);
+  const goToPreviousMonth = () => {
+    const today = new Date();
+    const prevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
 
-      // Set up daily interval after first midnight
-      const dailyInterval = setInterval(() => {
-        const refreshedDates = generateWeekDates();
-        setWeekDates(refreshedDates);
-        setSelectedDate(refreshedDates[0]);
-      }, 24 * 60 * 60 * 1000); // 24 hours
+    // Don't go to months before current month
+    if (prevMonth.getFullYear() > today.getFullYear() ||
+        (prevMonth.getFullYear() === today.getFullYear() && prevMonth.getMonth() >= today.getMonth())) {
+      setCurrentMonth(prevMonth);
+    }
+  };
 
-      return () => clearInterval(dailyInterval);
-    }, msUntilMidnight);
-
-    return () => clearTimeout(midnightTimer);
-  }, []);
+  const goToNextMonth = () => {
+    const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+    setCurrentMonth(nextMonth);
+  };
 
   useEffect(() => {
     if (selectedDate) {
@@ -212,6 +235,9 @@ function TimeSlotPicker({ service, onSelect, onBack }) {
     return date.toDateString() === tomorrow.toDateString();
   };
 
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
   return (
     <div className="max-w-6xl mx-auto">
       <h2 className="text-3xl font-bold text-gray-900 mb-2 text-center">Choose a Time</h2>
@@ -221,34 +247,72 @@ function TimeSlotPicker({ service, onSelect, onBack }) {
         </p>
       </div>
 
-      {/* Date Selector */}
+      {/* Calendar */}
       <div className="mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Select a Date</h3>
-        <div className="grid grid-cols-7 gap-2">
-          {weekDates.map((date, index) => {
-            const formatted = formatDate(date);
-            const isSelected = selectedDate && selectedDate.toDateString() === date.toDateString();
-            const today = isToday(date);
-            const tomorrow = isTomorrow(date);
+        <div className="bg-white border-2 border-gray-200 rounded-xl p-6">
+          {/* Month Navigation */}
+          <div className="flex items-center justify-between mb-6">
+            <button
+              onClick={goToPreviousMonth}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h3 className="text-2xl font-bold text-gray-900">
+              {months[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+            </h3>
+            <button
+              onClick={goToNextMonth}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
 
-            return (
-              <button
-                key={index}
-                onClick={() => setSelectedDate(date)}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  isSelected
-                    ? 'bg-black text-white border-black shadow-lg scale-105'
-                    : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'
-                }`}
-              >
-                <div className="text-xs font-medium mb-1">{formatted.day}</div>
-                <div className="text-2xl font-bold mb-1">{formatted.date}</div>
-                <div className="text-xs">
-                  {today ? 'Today' : tomorrow ? 'Tomorrow' : formatted.month}
-                </div>
-              </button>
-            );
-          })}
+          {/* Day Labels */}
+          <div className="grid grid-cols-7 gap-2 mb-2">
+            {dayLabels.map(day => (
+              <div key={day} className="text-center text-sm font-semibold text-gray-600 py-2">
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar Days */}
+          <div className="grid grid-cols-7 gap-2">
+            {calendarDays.map((date, index) => {
+              if (!date) {
+                return <div key={index} className="p-4"></div>;
+              }
+
+              const isSelected = selectedDate && selectedDate.toDateString() === date.toDateString();
+              const today = isToday(date);
+
+              return (
+                <button
+                  key={index}
+                  onClick={() => setSelectedDate(date)}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    isSelected
+                      ? 'bg-black text-white border-black shadow-lg scale-105'
+                      : today
+                      ? 'bg-green-50 text-gray-900 border-green-300 hover:border-green-500'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'
+                  }`}
+                >
+                  <div className="text-xl font-bold">
+                    {date.getDate()}
+                  </div>
+                  {today && <div className="text-xs mt-1">Today</div>}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
