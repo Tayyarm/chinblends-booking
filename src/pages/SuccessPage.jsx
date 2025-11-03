@@ -19,12 +19,18 @@ function SuccessPage() {
             Your appointment has been successfully booked. You'll receive a confirmation email shortly.
           </p>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-4">
             <p className="text-sm text-blue-800 mb-2">
               <strong>Important:</strong> Please arrive 5 minutes early for your appointment.
             </p>
             <p className="text-sm text-blue-800">
               Payment will be collected in person after your service.
+            </p>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
+            <p className="text-sm text-yellow-800">
+              <strong>Need to cancel or reschedule?</strong> Please contact us via Instagram <a href="https://www.instagram.com/chin_blends/" target="_blank" rel="noopener noreferrer" className="underline font-semibold">@chin_blends</a>
             </p>
           </div>
 
