@@ -77,13 +77,23 @@ function AdminDashboard({ onLogout }) {
   };
 
   const upcomingBookings = bookings.filter(b => {
-    const bookingDate = new Date(b.date + 'T' + convertTo24Hour(b.time));
-    return bookingDate >= new Date();
+    // Parse date in local timezone by creating date parts separately
+    const [year, month, day] = b.date.split('-').map(Number);
+    const time24 = convertTo24Hour(b.time);
+    const [hours, minutes] = time24.split(':').map(Number);
+    const bookingDate = new Date(year, month - 1, day, hours, minutes);
+    const now = new Date();
+    return bookingDate >= now;
   });
 
   const pastBookings = bookings.filter(b => {
-    const bookingDate = new Date(b.date + 'T' + convertTo24Hour(b.time));
-    return bookingDate < new Date();
+    // Parse date in local timezone by creating date parts separately
+    const [year, month, day] = b.date.split('-').map(Number);
+    const time24 = convertTo24Hour(b.time);
+    const [hours, minutes] = time24.split(':').map(Number);
+    const bookingDate = new Date(year, month - 1, day, hours, minutes);
+    const now = new Date();
+    return bookingDate < now;
   });
 
   const getRelativeDate = (dateStr) => {
@@ -218,7 +228,11 @@ function AdminDashboard({ onLogout }) {
                   </div>
                 ) : (
                   displayBookings.map((booking) => {
-                    const bookingDateTime = new Date(booking.date + 'T' + convertTo24Hour(booking.time));
+                    // Parse date in local timezone
+                    const [year, month, day] = booking.date.split('-').map(Number);
+                    const time24 = convertTo24Hour(booking.time);
+                    const [hours, minutes] = time24.split(':').map(Number);
+                    const bookingDateTime = new Date(year, month - 1, day, hours, minutes);
                     const isToday = bookingDateTime.toDateString() === new Date().toDateString();
                     const isTomorrow = bookingDateTime.toDateString() === new Date(Date.now() + 86400000).toDateString();
                     const relativeDate = getRelativeDate(booking.date);
