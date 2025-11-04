@@ -41,23 +41,7 @@ function AdminDashboard({ onLogout }) {
       console.error('Error fetching bookings:', error);
       // Fallback to localStorage for local development
       const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-
-      // Auto-cleanup: Remove bookings that are more than 24 hours past
-      const now = new Date();
-      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-      const cleanedBookings = localBookings.filter(b => {
-        const bookingDate = new Date(b.date + 'T' + convertTo24Hour(b.time));
-        return bookingDate >= oneDayAgo; // Keep bookings from last 24 hours
-      });
-
-      // Update localStorage if any bookings were removed
-      if (cleanedBookings.length !== localBookings.length) {
-        localStorage.setItem('bookings', JSON.stringify(cleanedBookings));
-        console.log(`Auto-cleaned ${localBookings.length - cleanedBookings.length} old bookings`);
-      }
-
-      setBookings(cleanedBookings);
+      setBookings(localBookings);
     } finally {
       setLoading(false);
     }
@@ -101,16 +85,6 @@ function AdminDashboard({ onLogout }) {
     const bookingDate = new Date(b.date + 'T' + convertTo24Hour(b.time));
     return bookingDate < new Date();
   });
-
-  const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
 
   const getRelativeDate = (dateStr) => {
     const date = new Date(dateStr);
