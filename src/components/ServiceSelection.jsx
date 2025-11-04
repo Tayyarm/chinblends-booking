@@ -2,7 +2,7 @@ const services = [
   {
     id: 1,
     name: 'Haircut',
-    price: '$25',
+    price: '$30',
     duration: '45 mins',
     description: 'Classic or modern cut tailored to your style'
   },
