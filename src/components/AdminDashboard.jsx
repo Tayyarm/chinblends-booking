@@ -97,14 +97,20 @@ function AdminDashboard({ onLogout }) {
   });
 
   const getRelativeDate = (dateStr) => {
-    const date = new Date(dateStr);
+    // Parse date in local timezone to avoid timezone issues
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to compare dates only
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    if (date.toDateString() === today.toDateString()) {
+    const dateOnly = new Date(date);
+    dateOnly.setHours(0, 0, 0, 0); // Reset time to compare dates only
+
+    if (dateOnly.getTime() === today.getTime()) {
       return 'Today';
-    } else if (date.toDateString() === tomorrow.toDateString()) {
+    } else if (dateOnly.getTime() === tomorrow.getTime()) {
       return 'Tomorrow';
     } else {
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
