@@ -113,24 +113,43 @@ function TimeSlotPicker({ service, onSelect, onBack }) {
     console.log('Selected date:', date.toDateString());
 
     try {
-      // Get barber's weekly schedule from database
+      // Get barber's availability from database
       const availResponse = await fetch('/api/availability');
       const availData = await availResponse.json();
-      const weeklySchedule = availData.availability || {};
-      console.log('Loaded weekly schedule from database:', weeklySchedule);
+      let availability = availData.availability || {};
+      console.log('Loaded availability from database:', availability);
+
+      // Handle both old and new format
+      let defaultSchedule = {};
+      let dateOverrides = {};
+
+      if (availability.defaultSchedule) {
+        // New format with overrides support
+        defaultSchedule = availability.defaultSchedule;
+        dateOverrides = availability.dateOverrides || {};
+      } else {
+        // Old format - treat as default schedule
+        defaultSchedule = availability;
+      }
+
+      // Get the actual date string for checking overrides and bookings
+      const dateStr = date.toISOString().split('T')[0];
+      console.log('Date string:', dateStr);
 
       // Get day of week (0 = Sunday, 6 = Saturday)
       const dayOfWeek = date.getDay();
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       console.log('Day of week:', dayOfWeek, dayNames[dayOfWeek]);
 
-      // Get available times for this day of the week from recurring schedule
-      const dateSlots = weeklySchedule[dayOfWeek] || [];
-      console.log(`Recurring slots for ${dayNames[dayOfWeek]}s:`, dateSlots);
-
-      // Get the actual date string for checking bookings
-      const dateStr = date.toISOString().split('T')[0];
-      console.log('Date string for booking check:', dateStr);
+      // Check for date-specific override first, otherwise use default schedule
+      let dateSlots;
+      if (dateOverrides[dateStr]) {
+        dateSlots = dateOverrides[dateStr];
+        console.log(`Using date-specific override for ${dateStr}:`, dateSlots);
+      } else {
+        dateSlots = defaultSchedule[dayOfWeek] || [];
+        console.log(`Using default schedule for ${dayNames[dayOfWeek]}s:`, dateSlots);
+      }
 
       if (dateSlots.length === 0) {
         console.log(`❌ Barber is closed on ${dayNames[dayOfWeek]}s`);
@@ -176,19 +195,26 @@ function TimeSlotPicker({ service, onSelect, onBack }) {
     } catch (error) {
       console.error('Error loading slots:', error);
       // Fallback to localStorage for local development
-      const weeklyScheduleJSON = localStorage.getItem('weeklySchedule');
+      const availabilityJSON = localStorage.getItem('availability');
       const bookingsJSON = localStorage.getItem('bookings');
 
-      if (!weeklyScheduleJSON) {
-        console.log('❌ No weekly schedule set by barber');
+      if (!availabilityJSON) {
+        console.log('❌ No schedule set by barber');
         setAvailableSlots([]);
         return;
       }
 
-      const weeklySchedule = JSON.parse(weeklyScheduleJSON);
+      // Parse availability from localStorage
+      const availability = JSON.parse(availabilityJSON);
+      const defaultSchedule = availability.defaultSchedule || availability;
+      const dateOverrides = availability.dateOverrides || {};
+
       const dayOfWeek = date.getDay();
-      const dateSlots = weeklySchedule[dayOfWeek] || [];
       const dateStr = date.toISOString().split('T')[0];
+
+      // Check for date override first, otherwise use default
+      const dateSlots = dateOverrides[dateStr] || defaultSchedule[dayOfWeek] || [];
+      console.log(`LocalStorage: Using ${dateOverrides[dateStr] ? 'override' : 'default'} for ${dateStr}:`, dateSlots);
 
       if (dateSlots.length === 0) {
         setAvailableSlots([]);
