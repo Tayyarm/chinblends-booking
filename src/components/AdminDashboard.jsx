@@ -6,6 +6,8 @@ function AdminDashboard({ onLogout }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('availability');
   const [bookingsView, setBookingsView] = useState('upcoming');
+  const [draggedBooking, setDraggedBooking] = useState(null);
+  const [rescheduleModal, setRescheduleModal] = useState({ show: false, booking: null, newDate: null, newTime: null });
 
   const convertTo24Hour = (time12) => {
     const [time, period] = time12.split(' ');
@@ -74,6 +76,67 @@ function AdminDashboard({ onLogout }) {
       setBookings(updatedBookings);
       alert('Booking cancelled successfully!');
     }
+  };
+
+  const rescheduleBooking = async (bookingId, newDate, newTime) => {
+    try {
+      // First, get the booking details
+      const booking = bookings.find(b => b.id === bookingId);
+      if (!booking) return;
+
+      // Update booking with new date and time
+      const updatedBooking = {
+        ...booking,
+        date: newDate,
+        time: newTime
+      };
+
+      // Try to update via API
+      const response = await fetch(`/api/bookings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedBooking),
+      });
+
+      if (response.ok) {
+        alert(`Booking rescheduled successfully!\nNew date: ${newDate}\nNew time: ${newTime}`);
+        fetchBookings();
+      } else {
+        throw new Error('API failed');
+      }
+    } catch (error) {
+      console.error('Error rescheduling booking:', error);
+      // Fallback to localStorage for local development
+      const localBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+      const updatedBookings = localBookings.map(b =>
+        b.id === bookingId
+          ? { ...b, date: newDate, time: newTime }
+          : b
+      );
+      localStorage.setItem('bookings', JSON.stringify(updatedBookings));
+      setBookings(updatedBookings);
+      alert(`Booking rescheduled successfully!\nNew date: ${newDate}\nNew time: ${newTime}`);
+    }
+  };
+
+  const handleDragStart = (e, booking) => {
+    setDraggedBooking(booking);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    setDraggedBooking(null);
+  };
+
+  const openRescheduleModal = (booking) => {
+    setRescheduleModal({
+      show: true,
+      booking,
+      newDate: booking.date,
+      newTime: booking.time
+    });
   };
 
   const upcomingBookings = bookings.filter(b => {
@@ -244,9 +307,27 @@ function AdminDashboard({ onLogout }) {
                     const relativeDate = getRelativeDate(booking.date);
 
                     return (
-                      <div key={booking.id} className="p-6 bg-white hover:bg-gray-50 transition-all border-2 border-gray-200 rounded-xl mb-4 hover:shadow-lg hover:border-black">
+                      <div
+                        key={booking.id}
+                        draggable={bookingsView === 'upcoming'}
+                        onDragStart={(e) => handleDragStart(e, booking)}
+                        onDragEnd={handleDragEnd}
+                        className={`p-6 bg-white hover:bg-gray-50 transition-all border-2 rounded-xl mb-4 hover:shadow-lg hover:border-black ${
+                          draggedBooking?.id === booking.id ? 'opacity-50' : ''
+                        } ${bookingsView === 'upcoming' ? 'cursor-move' : 'border-gray-200'}`}
+                      >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
+                            {/* Drag Handle Icon */}
+                            {bookingsView === 'upcoming' && (
+                              <div className="flex items-center gap-2 mb-2 text-gray-400">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                                </svg>
+                                <span className="text-xs">Drag to reschedule</span>
+                              </div>
+                            )}
+
                             {/* Date and Time Header */}
                             <div className="flex items-center gap-3 mb-4">
                               <span className={`inline-flex items-center px-4 py-2 rounded-lg text-base font-bold ${
@@ -289,12 +370,20 @@ function AdminDashboard({ onLogout }) {
                             </div>
                           </div>
                           {bookingsView === 'upcoming' && (
-                            <button
-                              onClick={() => cancelBooking(booking.id)}
-                              className="ml-4 px-6 py-3 text-base font-bold text-red-700 bg-red-50 hover:bg-red-100 border-2 border-red-300 rounded-lg transition-colors"
-                            >
-                              Cancel Booking
-                            </button>
+                            <div className="ml-4 flex flex-col gap-2">
+                              <button
+                                onClick={() => openRescheduleModal(booking)}
+                                className="px-6 py-3 text-base font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border-2 border-blue-300 rounded-lg transition-colors"
+                              >
+                                Reschedule
+                              </button>
+                              <button
+                                onClick={() => cancelBooking(booking.id)}
+                                className="px-6 py-3 text-base font-bold text-red-700 bg-red-50 hover:bg-red-100 border-2 border-red-300 rounded-lg transition-colors"
+                              >
+                                Cancel Booking
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -306,6 +395,69 @@ function AdminDashboard({ onLogout }) {
           </>
         )}
       </div>
+
+      {/* Reschedule Modal */}
+      {rescheduleModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setRescheduleModal({ show: false, booking: null, newDate: null, newTime: null })}>
+          <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold mb-4">Reschedule Booking</h2>
+
+            <div className="mb-4">
+              <p className="text-gray-600 mb-2">Customer: <span className="font-semibold">{rescheduleModal.booking?.customerName}</span></p>
+              <p className="text-gray-600 mb-2">Service: <span className="font-semibold">{rescheduleModal.booking?.service}</span></p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">New Date</label>
+              <input
+                type="date"
+                value={rescheduleModal.newDate || ''}
+                onChange={(e) => setRescheduleModal({ ...rescheduleModal, newDate: e.target.value })}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">New Time</label>
+              <select
+                value={rescheduleModal.newTime || ''}
+                onChange={(e) => setRescheduleModal({ ...rescheduleModal, newTime: e.target.value })}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Select a time</option>
+                {['09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
+                  '12:00 PM', '12:30 PM', '01:00 PM', '01:30 PM', '02:00 PM', '02:30 PM',
+                  '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM',
+                  '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM', '08:00 PM'].map(time => (
+                  <option key={time} value={time}>{time}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRescheduleModal({ show: false, booking: null, newDate: null, newTime: null })}
+                className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (rescheduleModal.newDate && rescheduleModal.newTime) {
+                    rescheduleBooking(rescheduleModal.booking.id, rescheduleModal.newDate, rescheduleModal.newTime);
+                    setRescheduleModal({ show: false, booking: null, newDate: null, newTime: null });
+                  } else {
+                    alert('Please select both date and time');
+                  }
+                }}
+                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors"
+              >
+                Confirm Reschedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
