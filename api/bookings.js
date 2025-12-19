@@ -122,9 +122,25 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: 'Booking not found' });
       }
 
+      // Store old booking details for email
+      const oldBooking = bookings[bookingIndex];
+
       // Update the booking
       bookings[bookingIndex] = updatedBooking;
       await client.set('bookings', JSON.stringify(bookings));
+
+      // Send reschedule notification emails (don't fail update if email fails)
+      try {
+        console.log('Attempting to send reschedule notification emails...');
+        await sendRescheduleNotificationEmail(updatedBooking, oldBooking);
+        console.log('✓ Reschedule notification sent to customer successfully');
+
+        await sendBarberRescheduleNotification(updatedBooking, oldBooking);
+        console.log('✓ Reschedule notification sent to barber successfully');
+      } catch (emailError) {
+        console.error('❌ Error sending reschedule emails (booking still updated):', emailError);
+        console.error('Email error details:', emailError.message);
+      }
 
       return res.status(200).json({ success: true, booking: updatedBooking });
     } catch (error) {
@@ -300,5 +316,97 @@ async function sendBarberCancellationNotification(booking) {
     await transporter.sendMail(barberEmail);
   } catch (error) {
     console.error('Error sending barber cancellation notification:', error);
+  }
+}
+
+async function sendRescheduleNotificationEmail(updatedBooking, oldBooking) {
+  // Only send if we have a valid email
+  if (!updatedBooking.customerEmail || !updatedBooking.customerEmail.includes('@')) {
+    console.log('Skipping customer reschedule email - no valid email address provided');
+    return;
+  }
+
+  // Email to customer notifying them of the reschedule
+  const customerEmail = {
+    from: process.env.EMAIL_USER,
+    to: updatedBooking.customerEmail,
+    subject: 'Appointment Rescheduled - Chinblends',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Appointment Rescheduled</h2>
+        <p>Hi ${updatedBooking.customerName},</p>
+        <p>Your appointment has been rescheduled. Here are the updated details:</p>
+
+        <div style="background: #fee; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+          <h3 style="margin-top: 0; color: #dc2626;">Previous Appointment:</h3>
+          <p><strong>Date:</strong> ${new Date(oldBooking.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <p><strong>Time:</strong> ${oldBooking.time}</p>
+        </div>
+
+        <div style="background: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+          <h3 style="margin-top: 0; color: #2563eb;">New Appointment:</h3>
+          <p><strong>Service:</strong> ${updatedBooking.service}</p>
+          <p><strong>Duration:</strong> ${updatedBooking.duration}</p>
+          <p><strong>Date:</strong> ${new Date(updatedBooking.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <p><strong>Time:</strong> ${updatedBooking.time}</p>
+        </div>
+
+        <p>We look forward to seeing you at the new time!</p>
+        <p style="color: #666;">
+          If you have any questions or need to make changes, please contact us:<br>
+          Email: chinblends@gmail.com<br>
+          Instagram: @chin_blends
+        </p>
+      </div>
+    `,
+  };
+
+  const result = await transporter.sendMail(customerEmail);
+  console.log('Customer reschedule notification sent:', result.messageId);
+  return result;
+}
+
+async function sendBarberRescheduleNotification(updatedBooking, oldBooking) {
+  // Email to barber notifying them of the reschedule
+  const barberEmail = {
+    from: process.env.EMAIL_USER,
+    to: 'chinblends@gmail.com',
+    subject: `Booking Rescheduled: ${updatedBooking.service} - ${updatedBooking.customerName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Booking Rescheduled</h2>
+        <p>A booking has been rescheduled:</p>
+
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p><strong>Customer:</strong> ${updatedBooking.customerName}</p>
+          <p><strong>Phone:</strong> ${updatedBooking.customerPhone}</p>
+          <p><strong>Email:</strong> ${updatedBooking.customerEmail}</p>
+          <p><strong>Service:</strong> ${updatedBooking.service}</p>
+          <p><strong>Duration:</strong> ${updatedBooking.duration}</p>
+        </div>
+
+        <div style="background: #fee; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+          <h3 style="margin-top: 0; color: #dc2626;">Previous Time:</h3>
+          <p><strong>Date:</strong> ${new Date(oldBooking.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <p><strong>Time:</strong> ${oldBooking.time}</p>
+        </div>
+
+        <div style="background: #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+          <h3 style="margin-top: 0; color: #2563eb;">New Time:</h3>
+          <p><strong>Date:</strong> ${new Date(updatedBooking.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <p><strong>Time:</strong> ${updatedBooking.time}</p>
+        </div>
+
+        <p style="color: #666;">Your schedule has been updated accordingly.</p>
+      </div>
+    `,
+  };
+
+  try {
+    const result = await transporter.sendMail(barberEmail);
+    console.log('Barber reschedule notification sent:', result.messageId);
+    return result;
+  } catch (error) {
+    console.error('Error sending barber reschedule notification:', error);
   }
 }
