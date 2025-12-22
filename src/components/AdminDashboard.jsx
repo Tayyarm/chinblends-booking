@@ -6,7 +6,6 @@ function AdminDashboard({ onLogout }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('availability');
   const [bookingsView, setBookingsView] = useState('upcoming');
-  const [draggedBooking, setDraggedBooking] = useState(null);
   const [rescheduleModal, setRescheduleModal] = useState({ show: false, booking: null, newDate: null, newTime: null });
 
   const convertTo24Hour = (time12) => {
@@ -119,15 +118,6 @@ function AdminDashboard({ onLogout }) {
       setBookings(updatedBookings);
       alert(`Booking rescheduled successfully!\nNew date: ${newDate}\nNew time: ${newTime}`);
     }
-  };
-
-  const handleDragStart = (e, booking) => {
-    setDraggedBooking(booking);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragEnd = () => {
-    setDraggedBooking(null);
   };
 
   const openRescheduleModal = (booking) => {
@@ -309,25 +299,10 @@ function AdminDashboard({ onLogout }) {
                     return (
                       <div
                         key={booking.id}
-                        draggable={bookingsView === 'upcoming'}
-                        onDragStart={(e) => handleDragStart(e, booking)}
-                        onDragEnd={handleDragEnd}
-                        className={`p-6 bg-white hover:bg-gray-50 transition-all border-2 rounded-xl mb-4 hover:shadow-lg hover:border-black ${
-                          draggedBooking?.id === booking.id ? 'opacity-50' : ''
-                        } ${bookingsView === 'upcoming' ? 'cursor-move' : 'border-gray-200'}`}
+                        className="p-6 bg-white hover:bg-gray-50 transition-all border-2 border-gray-200 rounded-xl mb-4 hover:shadow-lg hover:border-black"
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            {/* Drag Handle Icon */}
-                            {bookingsView === 'upcoming' && (
-                              <div className="flex items-center gap-2 mb-2 text-gray-400">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                                </svg>
-                                <span className="text-xs">Drag to reschedule</span>
-                              </div>
-                            )}
-
                             {/* Date and Time Header */}
                             <div className="flex items-center gap-3 mb-4">
                               <span className={`inline-flex items-center px-4 py-2 rounded-lg text-base font-bold ${
