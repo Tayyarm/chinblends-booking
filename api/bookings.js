@@ -32,6 +32,81 @@ transporter.verify(function (error) {
   }
 });
 
+// Calendar event generator (inline to avoid import issues)
+function generateCalendarEvent(booking) {
+  // Convert 12-hour time to 24-hour format
+  const convertTo24Hour = (time12) => {
+    const [time, period] = time12.split(' ');
+    let [hours, minutes] = time.split(':');
+    hours = parseInt(hours);
+
+    if (period === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+
+    return `${hours.toString().padStart(2, '0')}:${minutes}`;
+  };
+
+  // Parse the booking date and time
+  const bookingDate = new Date(booking.date);
+  const [hours, minutes] = convertTo24Hour(booking.time).split(':');
+
+  // Set the start time
+  const startDate = new Date(bookingDate);
+  startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+  // Calculate end time based on duration
+  const durationMinutes = parseInt(booking.duration);
+  const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+
+  // Format dates for iCalendar (YYYYMMDDTHHMMSS)
+  const formatICalDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hour = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    const sec = String(date.getSeconds()).padStart(2, '0');
+    return `${year}${month}${day}T${hour}${min}${sec}`;
+  };
+
+  const startDateStr = formatICalDate(startDate);
+  const endDateStr = formatICalDate(endDate);
+  const nowStr = formatICalDate(new Date());
+
+  // Create alarm for 15 minutes before
+  const alarmDate = new Date(startDate.getTime() - 15 * 60000);
+  const alarmStr = formatICalDate(alarmDate);
+
+  // Generate the .ics file content
+  const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Chinblends//Booking System//EN
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+BEGIN:VEVENT
+DTSTART:${startDateStr}
+DTEND:${endDateStr}
+DTSTAMP:${nowStr}
+UID:${booking.id}@chinblends.com
+SUMMARY:${booking.service} - Chinblends
+DESCRIPTION:Appointment for ${booking.service}\\nDuration: ${booking.duration}\\nCustomer: ${booking.customerName}\\nPhone: ${booking.customerPhone}
+LOCATION:Chinblends Barbershop
+STATUS:CONFIRMED
+SEQUENCE:0
+BEGIN:VALARM
+TRIGGER:${alarmStr}
+DESCRIPTION:Reminder: Your appointment at Chinblends is in 15 minutes
+ACTION:DISPLAY
+END:VALARM
+END:VEVENT
+END:VCALENDAR`;
+
+  return icsContent;
+}
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -191,6 +266,8 @@ export default async function handler(req, res) {
 }
 
 async function sendBookingEmail(booking) {
+  const icsContent = generateCalendarEvent(booking);
+
   const emailContent = {
     from: process.env.EMAIL_USER,
     to: 'chinblends@gmail.com',
@@ -207,8 +284,16 @@ async function sendBookingEmail(booking) {
           <p><strong>Time:</strong> ${booking.time}</p>
         </div>
         <p style="color: #666;">This is an automated notification from your booking system.</p>
+        <p style="color: #2563eb; font-weight: bold;">📅 Calendar event attached - Add to your calendar!</p>
       </div>
     `,
+    attachments: [
+      {
+        filename: 'appointment.ics',
+        content: icsContent,
+        contentType: 'text/calendar; charset=utf-8; method=REQUEST'
+      }
+    ]
   };
 
   const result = await transporter.sendMail(emailContent);
@@ -222,6 +307,8 @@ async function sendCustomerConfirmationEmail(booking) {
     console.log('Skipping customer email - no valid email address provided');
     return;
   }
+
+  const icsContent = generateCalendarEvent(booking);
 
   // Email to customer confirming their booking
   const customerEmail = {
@@ -239,6 +326,7 @@ async function sendCustomerConfirmationEmail(booking) {
           <p><strong>Date:</strong> ${new Date(booking.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
           <p><strong>Time:</strong> ${booking.time}</p>
         </div>
+        <p style="color: #2563eb; font-weight: bold;">📅 Calendar event attached - Add to your calendar for automatic reminders!</p>
         <p style="color: #666;">
           If you need to cancel or reschedule, please contact us:<br>
           Email: chinblends@gmail.com<br>
@@ -246,6 +334,13 @@ async function sendCustomerConfirmationEmail(booking) {
         </p>
       </div>
     `,
+    attachments: [
+      {
+        filename: 'appointment.ics',
+        content: icsContent,
+        contentType: 'text/calendar; charset=utf-8; method=REQUEST'
+      }
+    ]
   };
 
   const result = await transporter.sendMail(customerEmail);
@@ -326,6 +421,8 @@ async function sendRescheduleNotificationEmail(updatedBooking, oldBooking) {
     return;
   }
 
+  const icsContent = generateCalendarEvent(updatedBooking);
+
   // Email to customer notifying them of the reschedule
   const customerEmail = {
     from: process.env.EMAIL_USER,
@@ -351,6 +448,7 @@ async function sendRescheduleNotificationEmail(updatedBooking, oldBooking) {
           <p><strong>Time:</strong> ${updatedBooking.time}</p>
         </div>
 
+        <p style="color: #2563eb; font-weight: bold;">📅 Updated calendar event attached - Replace your old calendar entry!</p>
         <p>We look forward to seeing you at the new time!</p>
         <p style="color: #666;">
           If you have any questions or need to make changes, please contact us:<br>
@@ -359,6 +457,13 @@ async function sendRescheduleNotificationEmail(updatedBooking, oldBooking) {
         </p>
       </div>
     `,
+    attachments: [
+      {
+        filename: 'appointment.ics',
+        content: icsContent,
+        contentType: 'text/calendar; charset=utf-8; method=REQUEST'
+      }
+    ]
   };
 
   const result = await transporter.sendMail(customerEmail);
@@ -367,6 +472,8 @@ async function sendRescheduleNotificationEmail(updatedBooking, oldBooking) {
 }
 
 async function sendBarberRescheduleNotification(updatedBooking, oldBooking) {
+  const icsContent = generateCalendarEvent(updatedBooking);
+
   // Email to barber notifying them of the reschedule
   const barberEmail = {
     from: process.env.EMAIL_USER,
@@ -397,9 +504,17 @@ async function sendBarberRescheduleNotification(updatedBooking, oldBooking) {
           <p><strong>Time:</strong> ${updatedBooking.time}</p>
         </div>
 
+        <p style="color: #2563eb; font-weight: bold;">📅 Updated calendar event attached!</p>
         <p style="color: #666;">Your schedule has been updated accordingly.</p>
       </div>
     `,
+    attachments: [
+      {
+        filename: 'appointment.ics',
+        content: icsContent,
+        contentType: 'text/calendar; charset=utf-8; method=REQUEST'
+      }
+    ]
   };
 
   try {
