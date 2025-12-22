@@ -504,7 +504,10 @@ async function sendRescheduleNotificationEmail(updatedBooking, oldBooking) {
     return;
   }
 
-  const icsContent = generateCalendarEvent(updatedBooking);
+  // Generate cancellation for old appointment
+  const icsCancellation = generateCancellationEvent(oldBooking);
+  // Generate new event for rescheduled appointment
+  const icsNewEvent = generateCalendarEvent(updatedBooking);
 
   // Email to customer notifying them of the reschedule
   const customerEmail = {
@@ -531,7 +534,7 @@ async function sendRescheduleNotificationEmail(updatedBooking, oldBooking) {
           <p><strong>Time:</strong> ${updatedBooking.time}</p>
         </div>
 
-        <p style="color: #2563eb; font-weight: bold;">📅 Updated calendar event attached - Replace your old calendar entry!</p>
+        <p style="color: #2563eb; font-weight: bold;">📅 Calendar events attached - Your calendar will automatically update!</p>
         <p>We look forward to seeing you at the new time!</p>
         <p style="color: #666;">
           If you have any questions or need to make changes, please contact us:<br>
@@ -542,8 +545,13 @@ async function sendRescheduleNotificationEmail(updatedBooking, oldBooking) {
     `,
     attachments: [
       {
-        filename: 'appointment.ics',
-        content: icsContent,
+        filename: 'cancellation.ics',
+        content: icsCancellation,
+        contentType: 'text/calendar; charset=utf-8; method=CANCEL'
+      },
+      {
+        filename: 'new-appointment.ics',
+        content: icsNewEvent,
         contentType: 'text/calendar; charset=utf-8; method=REQUEST'
       }
     ]
@@ -555,7 +563,10 @@ async function sendRescheduleNotificationEmail(updatedBooking, oldBooking) {
 }
 
 async function sendBarberRescheduleNotification(updatedBooking, oldBooking) {
-  const icsContent = generateCalendarEvent(updatedBooking);
+  // Generate cancellation for old appointment
+  const icsCancellation = generateCancellationEvent(oldBooking);
+  // Generate new event for rescheduled appointment
+  const icsNewEvent = generateCalendarEvent(updatedBooking);
 
   // Email to barber notifying them of the reschedule
   const barberEmail = {
@@ -587,14 +598,19 @@ async function sendBarberRescheduleNotification(updatedBooking, oldBooking) {
           <p><strong>Time:</strong> ${updatedBooking.time}</p>
         </div>
 
-        <p style="color: #2563eb; font-weight: bold;">📅 Updated calendar event attached!</p>
+        <p style="color: #2563eb; font-weight: bold;">📅 Calendar events attached - Your calendar will automatically update!</p>
         <p style="color: #666;">Your schedule has been updated accordingly.</p>
       </div>
     `,
     attachments: [
       {
-        filename: 'appointment.ics',
-        content: icsContent,
+        filename: 'cancellation.ics',
+        content: icsCancellation,
+        contentType: 'text/calendar; charset=utf-8; method=CANCEL'
+      },
+      {
+        filename: 'new-appointment.ics',
+        content: icsNewEvent,
         contentType: 'text/calendar; charset=utf-8; method=REQUEST'
       }
     ]
