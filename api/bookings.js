@@ -93,7 +93,6 @@ DTSTAMP:${nowStr}
 UID:${booking.id}@chinblends.com
 SUMMARY:${booking.service} - Chinblends
 DESCRIPTION:Appointment for ${booking.service}\\nDuration: ${booking.duration}\\nCustomer: ${booking.customerName}\\nPhone: ${booking.customerPhone}
-LOCATION:Chinblends Barbershop
 STATUS:CONFIRMED
 SEQUENCE:0
 BEGIN:VALARM
