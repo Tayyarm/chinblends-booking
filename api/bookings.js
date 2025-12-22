@@ -1,5 +1,6 @@
 import { createClient } from 'redis';
 import nodemailer from 'nodemailer';
+import tickTickService from './ticktick-service.js';
 
 // Redis client setup
 let redisClient;
@@ -211,6 +212,24 @@ export default async function handler(req, res) {
       // Save to Redis store
       await client.set('bookings', JSON.stringify(bookings));
 
+      // Create TickTick task for admin (don't fail booking if TickTick fails)
+      try {
+        if (tickTickService.isEnabled()) {
+          console.log('Creating TickTick task for admin...');
+          const tickTickTask = await tickTickService.createTask(booking);
+          if (tickTickTask && tickTickTask.id) {
+            booking.tickTickTaskId = tickTickTask.id;
+            // Save the booking again with TickTick task ID
+            bookings[bookings.length - 1] = booking;
+            await client.set('bookings', JSON.stringify(bookings));
+            console.log('✓ TickTick task created for admin:', tickTickTask.id);
+          }
+        }
+      } catch (tickTickError) {
+        console.error('❌ Error creating TickTick task (booking still created):', tickTickError);
+        console.error('TickTick error details:', tickTickError.message);
+      }
+
       // Send confirmation emails (don't fail booking if email fails)
       try {
         console.log('Attempting to send booking notification emails...');
@@ -267,6 +286,33 @@ export default async function handler(req, res) {
       bookings[bookingIndex] = updatedBooking;
       await client.set('bookings', JSON.stringify(bookings));
 
+      // Update TickTick task for admin (don't fail update if TickTick fails)
+      try {
+        if (tickTickService.isEnabled() && oldBooking.tickTickTaskId) {
+          console.log('Updating TickTick task for admin...');
+          const tickTickTask = await tickTickService.updateTask(oldBooking.tickTickTaskId, updatedBooking);
+          if (tickTickTask && tickTickTask.id) {
+            updatedBooking.tickTickTaskId = tickTickTask.id;
+            bookings[bookingIndex] = updatedBooking;
+            await client.set('bookings', JSON.stringify(bookings));
+            console.log('✓ TickTick task updated for admin:', tickTickTask.id);
+          }
+        } else if (tickTickService.isEnabled() && !oldBooking.tickTickTaskId) {
+          // If there was no TickTick task before, create one now
+          console.log('Creating TickTick task for rescheduled booking...');
+          const tickTickTask = await tickTickService.createTask(updatedBooking);
+          if (tickTickTask && tickTickTask.id) {
+            updatedBooking.tickTickTaskId = tickTickTask.id;
+            bookings[bookingIndex] = updatedBooking;
+            await client.set('bookings', JSON.stringify(bookings));
+            console.log('✓ TickTick task created for admin:', tickTickTask.id);
+          }
+        }
+      } catch (tickTickError) {
+        console.error('❌ Error updating TickTick task (booking still updated):', tickTickError);
+        console.error('TickTick error details:', tickTickError.message);
+      }
+
       // Send reschedule notification emails (don't fail update if email fails)
       try {
         console.log('Attempting to send reschedule notification emails...');
@@ -307,6 +353,20 @@ export default async function handler(req, res) {
       // Remove booking
       const updatedBookings = bookings.filter(b => b.id !== bookingId);
       await client.set('bookings', JSON.stringify(updatedBookings));
+
+      // Delete TickTick task for admin (don't fail cancellation if TickTick fails)
+      try {
+        if (tickTickService.isEnabled() && booking.tickTickTaskId) {
+          console.log('Deleting TickTick task for admin...');
+          const deleted = await tickTickService.deleteTask(booking.tickTickTaskId);
+          if (deleted) {
+            console.log('✓ TickTick task deleted for admin:', booking.tickTickTaskId);
+          }
+        }
+      } catch (tickTickError) {
+        console.error('❌ Error deleting TickTick task (booking still cancelled):', tickTickError);
+        console.error('TickTick error details:', tickTickError.message);
+      }
 
       // Send cancellation emails (don't fail cancellation if email fails)
       try {
