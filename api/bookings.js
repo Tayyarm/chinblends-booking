@@ -106,6 +106,70 @@ END:VCALENDAR`;
   return icsContent;
 }
 
+// Calendar cancellation event generator
+function generateCancellationEvent(booking) {
+  // Convert 12-hour time to 24-hour format
+  const convertTo24Hour = (time12) => {
+    const [time, period] = time12.split(' ');
+    let [hours, minutes] = time.split(':');
+    hours = parseInt(hours);
+
+    if (period === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+
+    return `${hours.toString().padStart(2, '0')}:${minutes}`;
+  };
+
+  // Parse the booking date and time
+  const bookingDate = new Date(booking.date);
+  const [hours, minutes] = convertTo24Hour(booking.time).split(':');
+
+  // Set the start time
+  const startDate = new Date(bookingDate);
+  startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+  // Calculate end time based on duration
+  const durationMinutes = parseInt(booking.duration);
+  const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+
+  // Format dates for iCalendar (YYYYMMDDTHHMMSS)
+  const formatICalDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hour = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    const sec = String(date.getSeconds()).padStart(2, '0');
+    return `${year}${month}${day}T${hour}${min}${sec}`;
+  };
+
+  const startDateStr = formatICalDate(startDate);
+  const endDateStr = formatICalDate(endDate);
+  const nowStr = formatICalDate(new Date());
+
+  // Generate the cancellation .ics file content
+  const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Chinblends//Booking System//EN
+CALSCALE:GREGORIAN
+METHOD:CANCEL
+BEGIN:VEVENT
+DTSTART:${startDateStr}
+DTEND:${endDateStr}
+DTSTAMP:${nowStr}
+UID:${booking.id}@chinblends.com
+SUMMARY:${booking.service} - Chinblends
+STATUS:CANCELLED
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR`;
+
+  return icsContent;
+}
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -348,6 +412,8 @@ async function sendCustomerConfirmationEmail(booking) {
 }
 
 async function sendCancellationEmail(booking) {
+  const icsCancellation = generateCancellationEvent(booking);
+
   // Email to customer about cancellation
   const customerEmail = {
     from: process.env.EMAIL_USER,
@@ -363,6 +429,7 @@ async function sendCancellationEmail(booking) {
           <p><strong>Date:</strong> ${new Date(booking.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
           <p><strong>Time:</strong> ${booking.time}</p>
         </div>
+        <p style="color: #dc2626; font-weight: bold;">📅 Calendar cancellation attached - This will automatically remove the event from your calendar!</p>
         <p>Please contact us to reschedule your appointment.</p>
         <p style="color: #666;">
           Contact: chinblends@gmail.com<br>
@@ -370,6 +437,13 @@ async function sendCancellationEmail(booking) {
         </p>
       </div>
     `,
+    attachments: [
+      {
+        filename: 'cancellation.ics',
+        content: icsCancellation,
+        contentType: 'text/calendar; charset=utf-8; method=CANCEL'
+      }
+    ]
   };
 
   try {
@@ -383,6 +457,8 @@ async function sendCancellationEmail(booking) {
 }
 
 async function sendBarberCancellationNotification(booking) {
+  const icsCancellation = generateCancellationEvent(booking);
+
   // Email to barber notifying them of the cancellation
   const barberEmail = {
     from: process.env.EMAIL_USER,
@@ -401,9 +477,17 @@ async function sendBarberCancellationNotification(booking) {
           <p><strong>Date:</strong> ${new Date(booking.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
           <p><strong>Time:</strong> ${booking.time}</p>
         </div>
+        <p style="color: #dc2626; font-weight: bold;">📅 Calendar cancellation attached - This will automatically remove the event from your calendar!</p>
         <p style="color: #666;">This time slot is now available for other bookings.</p>
       </div>
     `,
+    attachments: [
+      {
+        filename: 'cancellation.ics',
+        content: icsCancellation,
+        contentType: 'text/calendar; charset=utf-8; method=CANCEL'
+      }
+    ]
   };
 
   try {
