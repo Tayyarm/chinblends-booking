@@ -104,6 +104,8 @@ class TickTickService {
   }
 
   formatBookingAsTask(booking) {
+    console.log('formatBookingAsTask input:', { date: booking.date, time: booking.time, duration: booking.duration });
+
     // Convert 12-hour time to 24-hour format
     const convertTo24Hour = (time12) => {
       const [time, period] = time12.split(' ');
@@ -121,14 +123,22 @@ class TickTickService {
 
     // Parse the booking date and time properly
     const bookingDate = new Date(booking.date);
-    const [hours, minutes] = convertTo24Hour(booking.time).split(':');
+    console.log('bookingDate:', bookingDate);
+
+    const time24 = convertTo24Hour(booking.time);
+    console.log('time24:', time24);
+
+    const [hours, minutes] = time24.split(':');
+    console.log('hours:', hours, 'minutes:', minutes);
 
     // Set the start time
     const startDateTime = new Date(bookingDate);
     startDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    console.log('startDateTime:', startDateTime, 'ISO:', startDateTime.toISOString());
 
     // Calculate end time based on duration
     const endDateTime = new Date(startDateTime.getTime() + booking.duration * 60000);
+    console.log('endDateTime:', endDateTime, 'ISO:', endDateTime.toISOString());
 
     const title = `${booking.service} - ${booking.customerName}`;
     const content = `Customer: ${booking.customerName}\nPhone: ${booking.customerPhone}\nEmail: ${booking.customerEmail}\nService: ${booking.service}\nDuration: ${booking.duration} minutes\nPrice: £${booking.price}`;
