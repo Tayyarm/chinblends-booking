@@ -21,7 +21,6 @@ class TickTickService {
 
     try {
       const taskData = this.formatBookingAsTask(booking);
-      console.log('TickTick task payload:', JSON.stringify(taskData, null, 2));
 
       const response = await axios.post(
         `${TICKTICK_API_BASE}/task`,
@@ -38,10 +37,6 @@ class TickTickService {
       return response.data;
     } catch (error) {
       console.error('Error creating TickTick task:', error.response?.data || error.message);
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response headers:', error.response.headers);
-      }
       return null;
     }
   }
@@ -109,8 +104,6 @@ class TickTickService {
   }
 
   formatBookingAsTask(booking) {
-    console.log('formatBookingAsTask input:', { date: booking.date, time: booking.time, duration: booking.duration });
-
     // Convert 12-hour time to 24-hour format
     const convertTo24Hour = (time12) => {
       const [time, period] = time12.split(' ');
@@ -128,44 +121,36 @@ class TickTickService {
 
     // Parse the booking date and time properly
     const bookingDate = new Date(booking.date);
-    console.log('bookingDate:', bookingDate);
-
     const time24 = convertTo24Hour(booking.time);
-    console.log('time24:', time24);
-
     const [hours, minutes] = time24.split(':');
-    console.log('hours:', hours, 'minutes:', minutes);
 
     // Set the start time
     const startDateTime = new Date(bookingDate);
     startDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-    console.log('startDateTime:', startDateTime, 'ISO:', startDateTime.toISOString());
 
     // Calculate end time based on duration
     // Duration might be a string like "20 mins" or a number, so parse it
     const durationMinutes = typeof booking.duration === 'string'
       ? parseInt(booking.duration)
       : booking.duration;
-    console.log('durationMinutes:', durationMinutes);
 
     const endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60000);
-    console.log('endDateTime:', endDateTime, 'ISO:', endDateTime.toISOString());
 
     const title = `${booking.service} - ${booking.customerName}`;
     const content = `Customer: ${booking.customerName}\nPhone: ${booking.customerPhone}\nEmail: ${booking.customerEmail}\nService: ${booking.service}\nDuration: ${booking.duration} minutes\nPrice: £${booking.price}`;
 
-    // Start with minimal required fields only
     const taskData = {
       title: title,
-      content: content
+      content: content,
+      startDate: startDateTime.toISOString(),
+      dueDate: endDateTime.toISOString(),
+      isAllDay: false
     };
 
-    // Only add optional fields if needed
     if (this.projectId) {
       taskData.projectId = this.projectId;
     }
 
-    console.log('Final task data:', JSON.stringify(taskData, null, 2));
     return taskData;
   }
 }
