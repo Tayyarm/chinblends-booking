@@ -33,7 +33,7 @@ class TickTickService {
         }
       );
 
-      console.log(`TickTick task created for booking ${booking.id}`);
+      console.log(`TickTick task created for booking ${booking.id}:`, response.data);
       return response.data;
     } catch (error) {
       console.error('Error creating TickTick task:', error.response?.data || error.message);
