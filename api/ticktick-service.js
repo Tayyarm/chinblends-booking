@@ -21,6 +21,7 @@ class TickTickService {
 
     try {
       const taskData = this.formatBookingAsTask(booking);
+      console.log('TickTick task payload:', JSON.stringify(taskData, null, 2));
 
       const response = await axios.post(
         `${TICKTICK_API_BASE}/task`,
@@ -37,6 +38,10 @@ class TickTickService {
       return response.data;
     } catch (error) {
       console.error('Error creating TickTick task:', error.response?.data || error.message);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response headers:', error.response.headers);
+      }
       return null;
     }
   }
@@ -156,9 +161,7 @@ class TickTickService {
       dueDate: endDateTime.toISOString(),
       isAllDay: false,
       reminders: [
-        {
-          trigger: 'TRIGGER:PT15M'
-        }
+        'TRIGGER:PT15M'
       ],
       priority: 1
     };
