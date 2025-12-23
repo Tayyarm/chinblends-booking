@@ -104,7 +104,30 @@ class TickTickService {
   }
 
   formatBookingAsTask(booking) {
-    const startDateTime = new Date(`${booking.date}T${booking.time}`);
+    // Convert 12-hour time to 24-hour format
+    const convertTo24Hour = (time12) => {
+      const [time, period] = time12.split(' ');
+      let [hours, minutes] = time.split(':');
+      hours = parseInt(hours);
+
+      if (period === 'PM' && hours !== 12) {
+        hours += 12;
+      } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+      }
+
+      return `${hours.toString().padStart(2, '0')}:${minutes}`;
+    };
+
+    // Parse the booking date and time properly
+    const bookingDate = new Date(booking.date);
+    const [hours, minutes] = convertTo24Hour(booking.time).split(':');
+
+    // Set the start time
+    const startDateTime = new Date(bookingDate);
+    startDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+    // Calculate end time based on duration
     const endDateTime = new Date(startDateTime.getTime() + booking.duration * 60000);
 
     const title = `${booking.service} - ${booking.customerName}`;
