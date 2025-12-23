@@ -154,22 +154,18 @@ class TickTickService {
     const title = `${booking.service} - ${booking.customerName}`;
     const content = `Customer: ${booking.customerName}\nPhone: ${booking.customerPhone}\nEmail: ${booking.customerEmail}\nService: ${booking.service}\nDuration: ${booking.duration} minutes\nPrice: £${booking.price}`;
 
+    // Start with minimal required fields only
     const taskData = {
       title: title,
-      content: content,
-      startDate: startDateTime.toISOString(),
-      dueDate: endDateTime.toISOString(),
-      isAllDay: false,
-      reminders: [
-        'TRIGGER:PT15M'
-      ],
-      priority: 1
+      content: content
     };
 
+    // Only add optional fields if needed
     if (this.projectId) {
       taskData.projectId = this.projectId;
     }
 
+    console.log('Final task data:', JSON.stringify(taskData, null, 2));
     return taskData;
   }
 }
