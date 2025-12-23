@@ -137,7 +137,13 @@ class TickTickService {
     console.log('startDateTime:', startDateTime, 'ISO:', startDateTime.toISOString());
 
     // Calculate end time based on duration
-    const endDateTime = new Date(startDateTime.getTime() + booking.duration * 60000);
+    // Duration might be a string like "20 mins" or a number, so parse it
+    const durationMinutes = typeof booking.duration === 'string'
+      ? parseInt(booking.duration)
+      : booking.duration;
+    console.log('durationMinutes:', durationMinutes);
+
+    const endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60000);
     console.log('endDateTime:', endDateTime, 'ISO:', endDateTime.toISOString());
 
     const title = `${booking.service} - ${booking.customerName}`;
